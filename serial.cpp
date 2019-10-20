@@ -37,13 +37,17 @@ Serial::Serial(QWidget *parent) :
     {
         ui->comboBox->addItem(i);
     }
-    doc.LoadFile("config.xml");
-    root = doc.RootElement();
-    tinyxml2::XMLElement *first_child1 = root->FirstChildElement("port");
-    const char *port;
-    port = first_child1->GetText();
-    QString COM = (QString) port;
-    ui->lineEdit->setText(COM);
+    if(!doc.LoadFile("config.xml")){
+        root = doc.RootElement();
+        tinyxml2::XMLElement *first_child1 = root->FirstChildElement("port");
+        const char *port;
+        port = first_child1->GetText();
+        QString COM = (QString) port;
+        ui->lineEdit->setText(COM);
+    }else {
+        QString COM("20001");
+        ui->lineEdit->setText(COM);
+    }
 }
 
 void Serial::creat_process()
