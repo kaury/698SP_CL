@@ -1,4 +1,5 @@
 
+
 *.cbp
 cmake-build-debug/698SP_CL_autogen/
 cmake-build-debug/BasicExcel/
@@ -11,3 +12,6 @@ cmake-build-debug/XMLFile/
 *.depends
 cmake-build-debug/Makefile
 cmake-build-debug/CMakeCache.txt
+
+CMakeLists.txt.user
+
