@@ -1,10 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "QMessageBox"
-#include "ui_serial.h"
-#include <ui_Custom_APDU.h>
 #include <MeterArchives.h>
-#include <ui_MeterArchives.h>
 #include <iostream>
 #include <QScrollBar>
 #include <QtWidgets/QInputDialog>
@@ -15,9 +12,8 @@
 #include <QApplication>
 #include <QClipboard>
 
-using namespace std;
 
-extern QString DARType(int);
+using namespace std;
 
 extern QString BuildMessage(QString apdu, const QString &SA, const QString &ctrl_zone);
 
@@ -35,6 +31,14 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableWidget->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     ui->tableWidget->setToolTipDuration(50);
     setWindowTitle("698SP v1.3");
+
+    database = QSqlDatabase::addDatabase("QSQLITE");
+    database.setDatabaseName("Database.db");
+    if (!database.open())
+    {
+        qDebug() << "Error: Failed to connect database." << database.lastError();
+    }
+
     connect(ui->actionA, SIGNAL(triggered()), this, SLOT(about())); //关于
     connect(ui->actionSd, SIGNAL(triggered()), this, SLOT(serial_config())); //打开参数设置
     connect(ui->actionAPDUzu, SIGNAL(triggered()), this, SLOT(custom()));
@@ -52,10 +56,12 @@ MainWindow::MainWindow(QWidget *parent) :
     attach4520->setText("Build_4520");
     ui->menu_4->addAction(attach4520);
     connect(attach4520, SIGNAL(triggered()), this, SLOT(open_attach()));
+
+
     Custom = new Custom_APDU();
     Custom_point = ui->mdiArea->addSubWindow(Custom, Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
-
     connect(Custom, SIGNAL(send_write(QList<QString>)), serial, SLOT(write(QList<QString>)), Qt::UniqueConnection);
+
 
     MeterArchive = new MeterArchives();
     MeterArchive_point = ui->mdiArea->addSubWindow(MeterArchive,
@@ -63,12 +69,22 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(MeterArchive, SIGNAL(send_write(QList<QString>)), serial, SLOT(write(QList<QString>)),
             Qt::UniqueConnection);
     connect(this, SIGNAL(deal_with_meter(QList<QString>)), MeterArchive, SLOT(
-                                                                                 show_meter_message(QList<QString>)));
+            show_meter_message(QList<QString>)));
+
+
+    Parametric_variable = new _4_Parametric_variable();
+    Parametric_variable_point = ui->mdiArea->addSubWindow(Parametric_variable,Qt::WindowMinimizeButtonHint);
+    Parametric_variable_point->widget()->showMaximized();
+    connect(Parametric_variable, SIGNAL(send_write(QList<QString>)), serial, SLOT(write(QList<QString>)), Qt::UniqueConnection);
+
+
     QList<QMdiSubWindow *> p = ui->mdiArea->subWindowList();
-    for (auto & j : p)
+    for (auto &j : p)
     {
-        j->widget()->showMinimized();
+        j->widget()->showMaximized();
     }
+
+
     QAction *shijian_init;
     shijian_init = new QAction();
     shijian_init->setObjectName(QStringLiteral("shijian_init"));
@@ -102,6 +118,8 @@ MainWindow::MainWindow(QWidget *parent) :
                                             const QModelIndex)), this, SLOT(double_click_analysis(
                                                                                     const QModelIndex)));
     connect(ui->tableWidget, SIGNAL(itemSelectionChanged()), this, SLOT(copy_message()));
+
+
 }
 
 void MainWindow::function()
@@ -112,13 +130,11 @@ void MainWindow::function()
     string temp;
     while (getline(in, temp))
     {
-        QString
-                temp2 = QString::fromStdString(temp);
+        QString temp2 = QString::fromStdString(temp);
         if (temp2 == f_action->text())
         {
             while (getline(in, temp))
             {
-
                 if (QString::fromStdString(temp) == "")
                 {
                     break;
@@ -240,9 +256,19 @@ QString MainWindow::analysis(QString a)
             }
             QString
                     APDU = "81" + n.PIIDACD + "80" + n.REQUEST_TIMEDATE_TIME + year + date_times + year + date_times;
-            emit
-            serial->send_write({BuildMessage(APDU, revert_add, "01"), "登录/心跳响应"});
-            return "登录/心跳";
+            if (n.LINK_REQUSET_TYPE == "00")
+            {
+                emit
+                serial->send_write({BuildMessage(APDU, revert_add, "01"), "登录响应"});
+                return "登录";
+            } else
+            {
+                emit
+                serial->send_write({BuildMessage(APDU, revert_add, "01"), "心跳响应"});
+                return "心跳";
+            }
+
+
         }
 
         case 0x85:
@@ -422,7 +448,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::about()
 {
-    QMessageBox::information(this, "关于", "698SP CLION V1.2 \n QT版本: 5.11.3", QMessageBox::Ok);
+    QMessageBox::information(this, "关于", "698SP CLION V1.3 \n QT版本: 5.11.3", QMessageBox::Ok);
 }
 
 void MainWindow::serial_config()
@@ -451,8 +477,16 @@ void MainWindow::show_message_send(QList<QString> a)
     ui->tableWidget->setItem(current, 1, new QTableWidgetItem(StringAddSpace(a[0])));
     ui->tableWidget->setItem(current, 2, new QTableWidgetItem(a[1].replace("\n", "")));
     ui->tableWidget->setItem(current, 3, new QTableWidgetItem(x));
-    ui->tableWidget->item(current, 1)->setToolTip(StringAddSpace(a[0]));
-    ui->tableWidget->item(current, 2)->setToolTip((a[1]));
+//    ui->tableWidget->item(current, 1)->setToolTip(StringAddSpace(a[0]));
+//    ui->tableWidget->item(current, 2)->setToolTip((a[1]));
+    if (a[1].contains("心跳") or a[1].contains("登录"))
+    {
+        ui->tableWidget->item(current, 2)->setForeground(QBrush(QColor(0,139,139)));
+    }else
+    if (a[1].contains("上报")){
+        ui->tableWidget->item(current, 2)->setForeground(QBrush(QColor(205,92,92)));
+
+    }
     current += 1;
     move_Cursor();
 }
@@ -468,9 +502,18 @@ void MainWindow::show_message_receive(QString a)
     ui->tableWidget->setItem(current, 0, new QTableWidgetItem("收到:"));
     QString te = analysis(a);
     ui->tableWidget->setItem(current, 1, new QTableWidgetItem(a));
+
     ui->tableWidget->setItem(current, 2, new QTableWidgetItem(te));
+
     ui->tableWidget->setItem(current, 3, new QTableWidgetItem(x));
-//    ui->tableWidget->item(current, 1)->setToolTip(a);
+    if (te.contains("心跳") or te.contains("登录"))
+    {
+        ui->tableWidget->item(current, 2)->setForeground(QBrush(QColor(0,139,139)));
+    } else
+        if (te.contains("上报")){
+            ui->tableWidget->item(current, 2)->setForeground(QBrush(QColor(205,92,92)));
+        }
+
     current += 1;
     move_Cursor();
 
@@ -648,3 +691,18 @@ void MainWindow::copy_message()
 }
 
 
+QString MainWindow::DARType(int a)
+{
+    QSqlQuery sql_query;
+    sql_query.exec("select * from dar where Number= " + QString::number(a));
+    if (!sql_query.exec())
+    {
+        qDebug() << sql_query.lastError();
+    } else
+    {
+        sql_query.next();
+        QString detail = sql_query.value(0).toString();
+        qDebug() << QString("detail:%1").arg(detail);
+        return detail;
+    }
+}
