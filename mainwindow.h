@@ -18,6 +18,8 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include "Online.h"
+#include "SaveLog.h"
 
 #define DATA_NULL                        0
 #define DATA_ARRAY                        1
@@ -141,6 +143,7 @@ public:
         QString GetResultType;
     } ReportNotificationList;
 private:
+    SaveLog *logging;
     Ui::MainWindow *ui;
     Serial *serial;
     Custom_APDU *Custom;
@@ -149,12 +152,17 @@ private:
     Analysis *analy;
     CollectionMonitoringClass *CollectionMonitoring;
     _4_Parametric_variable *Parametric_variable;
+    Online *online;
 
 signals:
 
     void send_analysis(QString);
 
     void deal_with_meter(QList<QString>);
+
+    void deal_6012(QList<QString>);
+    void deal_6014(QList<QString>);
+    void deal_601C(QList<QString>);
 
 public slots:
 
@@ -165,6 +173,8 @@ public slots:
     void show_message_receive(QString);
 
     void set_ip();
+
+    void set_add();
 
     void about();
 
@@ -193,6 +203,8 @@ public slots:
     void op_analy();
 
     void copy_message();
+
+    void OnlineModel();
 
 };
 
