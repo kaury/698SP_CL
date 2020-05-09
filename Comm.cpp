@@ -3,15 +3,59 @@
 #include <QtCore/QStringList>
 #include <QDebug>
 #include <MeterArchives.h>
-#include <mainwindow.h>
+//#include <mainwindow.h>
+#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <vector>
+#include <XMLFile/tinyxml2.h>
+#include <QtWidgets/QTreeWidgetItem>
 #include "io.h"
 
-
 #define PPPINITFCS16 0xffff
+#define DATA_NULL                        0
+#define DATA_ARRAY                       1
+#define DATA_STRUCT                      2
+#define DATA_BOOL                        3
+#define DATA_BITSTRING                   4
+#define DATA_DOUBLE_LONG                 5
+#define DATA_DOUBLE_LONG_UNSIGNED        6
+#define DATA_OCT_STRING                  9
+#define DATA_VISIBLE_STRING             10
+#define DATA_UTF8_STRING                12
+#define DATA_INTEGER                    15
+#define DATA_LONG                       16
+#define DATA_UNSIGNED                   17
+#define DATA_LONG_UNSIGNED              18
+#define DATA_LONG64                        20
+#define DATA_LONG64_UNSIGNED            21
+#define DATA_ENUM                        22
+#define DATA_FLOAT32                    23
+#define DATA_FLOAT64                    24
+#define DATA_DATE_TIME                    25
+#define DATA_DATE                        26
+#define DATA_TIME                        27
+#define DATA_DATE_TIME_S                28
+#define DATA_OI                            80
+#define DATA_OAD                        81
+#define DATA_ROAD                        82
+#define DATA_OMD                        83
+#define DATA_TI                            84
+#define DATA_TSA                        85
+#define DATA_MAC                        86
+#define DATA_RN                            87
+#define DATA_REGION                        88
+#define DATA_SCALER_UNIT                89
+#define DATA_RSD                        90
+#define DATA_CSD                        91
+#define DATA_MS                            92
+#define DATA_SID                        93
+#define DATA_SID_MAC                    94
+#define DATA_COMDCB                        95
+#define DATA_RCSD                        96
 
 using namespace std;
+
 
 QString binToDec(QString strBin) {  //二进制转十进制
     QString decimal;
@@ -230,34 +274,34 @@ QString DealDataType(const int NoDataType, int len, QTreeWidgetItem *item) {
 }
 
 
-QString BuildMessage(QString apdu, const QString &SA, const QString &ctrl_zone) {
+QString BuildMessage(const QString &apdu, const QString &SA, const QString &ctrl_zone) {
     qDebug() << "apdu:" << apdu;
     qDebug() << "SA:" << SA;
     qDebug() << "ctrl_zone:" << ctrl_zone;
-    apdu.remove(' ');
 //    qDebug() << "apdu" << apdu;
     int len = SA.length() / 2 - 1;
-    if (len == -1) {
+    if (len == -1 or len == 0) {
         qDebug() << "BuildMessage 1 error";
         return "0";
     }
     QString SA_sign = QString("%1").arg(len);
-    int apdu_len = apdu.length() / 2;
-    int Total_length = 10 + len + apdu_len;
+    int apdulen = apdu.length() / 2;
+    int Total_length = 10 + len + apdulen;
     int lenth1 = Total_length & 0x00ff;
     int lenth2 = Total_length >> 8;
     char len1[3] = {'0', '0'};
     char len2[3] = {'0', '0'};
     sprintf(len1, "%02X", lenth1);
     sprintf(len2, "%02X", lenth2);
-    char full_len[4];
+    char full_len[5];
     sprintf(full_len, "%.2s%.2s", len1, len2);
     QString text(full_len);
     QString Head = text + ctrl_zone + "0" + SA_sign + SA + "10";
-    qDebug()<<"maybe a problem!!!!"<<Head;
+    qDebug() << "maybe a problem!!!!" << Head;
     BYTE text1[600] = {0};
     Stringlist2Hex(Head, text1);
     unsigned short TempLen = pppfcs16(PPPINITFCS16, text1, (unsigned) Head.length() / 2);
+//    unsigned short TempLen = pppfcs16(PPPINITFCS16, text1, );
     char hcs[5];
     sprintf(hcs, "%04X", TempLen);
     QString HCS = message_swap((QString) hcs);
@@ -336,12 +380,13 @@ QString StringAddSpace(QString &input) {
     for (int i = 0; i < input.length(); i += 2) {
         output = output + input[i] + input[i + 1] + ' ';
     }
+    qDebug() << "output: " << output;
     return output;
 }
 
 int Stringlist2Hex(QString &str, BYTE *pOut) {
     QList<QString> str_list;
-    str_list = StringAddSpace(str).split(' ');
+    str_list = (StringAddSpace(str)).split(' ');
     int len = str_list.length();
     for (int i = 0; i < len; i++) {
         int qwe = str_list[i].toInt(nullptr, 16);
@@ -500,7 +545,7 @@ QString mision_style(const QString &text) {
         case 5:
             return "脚本方案";
         default:
-            return "???";
+            return "???方案";
     }
 }
 

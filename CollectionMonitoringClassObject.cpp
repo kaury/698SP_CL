@@ -6,8 +6,9 @@
 #include "QAction"
 #include "vector"
 
+#pragma execution_character_set("utf-8")
 
-extern QString BuildMessage(QString apdu, const QString &SA, const QString &ctrl_zone);
+extern auto BuildMessage(const QString &apdu, const QString &SA, const QString &ctrl_zone) -> QString;
 
 extern QString time_deal(const QString &);
 
@@ -20,6 +21,43 @@ extern QString run_style(const QString &);
 extern QString mision_style(const QString &);
 
 extern QString saved_time(const QString &);
+
+extern QString StringAddSpace(QString &input);
+
+QString ReTimeHex(QString time) {
+    auto date = time.split(" ");
+    auto date_ = date[0].split("/");
+
+    auto year = QString().sprintf("%04x", date_[0].toInt());
+    auto mouth = QString().sprintf("%02x", date_[1].toInt());
+    auto day = QString().sprintf("%02x", date_[2].toInt());
+
+    auto time_ = date[1].split(":");
+
+    auto hour = QString().sprintf("%02x", time_[0].toInt());
+    auto min = QString().sprintf("%02x", time_[1].toInt());
+    auto sec = QString().sprintf("%02x", time_[2].toInt());
+    return year + mouth + day + hour + min + sec;
+}
+
+QString ReCollect(int x) {
+    switch (x) {
+        default: {
+            qDebug() << "ERROR 46";
+        }
+        case 0: {
+
+        }
+            break;
+        case 1:
+            return "50020200";
+        case 2:
+            return "50040200";
+        case 3:
+            return "50060200";
+    }
+
+}
 
 CollectionMonitoringClass::CollectionMonitoringClass(QWidget *parent) : QDialog(parent),
                                                                         ui(new Ui::FormCOLLECTIONMONITORINGCLASSOBJECT) {
@@ -40,11 +78,11 @@ CollectionMonitoringClass::CollectionMonitoringClass(QWidget *parent) : QDialog(
 
     }
 //    ui->tableWidget->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    Tab_2_init();
+    ui->tabWidget->setCurrentIndex(0);
 }
 
 void CollectionMonitoringClass::analysis6012(QList<QString> list6012) {
-    ui->pushButton_3->setEnabled(true);
-    ui->pushButton_2->setEnabled(true);
     auto pos = list6012.begin();
     if (*pos == "01") {
         pos++;
@@ -68,7 +106,6 @@ void CollectionMonitoringClass::analysis6012(QList<QString> list6012) {
             ui->tableWidget->setItem(rowcount, 1, new QTableWidgetItem(fre(n.freq)));
             pos++;
             n.style = *pos;
-
             ui->tableWidget->setItem(rowcount, 2, new QTableWidgetItem(mision_style(n.style)));
             pos += 2;
             n.No = (*pos).toInt(nullptr, 16);
@@ -102,10 +139,13 @@ void CollectionMonitoringClass::analysis6012(QList<QString> list6012) {
             ui->tableWidget->setItem(rowcount, 12, new QTableWidgetItem(n.prio));
             pos += 2;
             n.stat = *pos;
-            if (n.stat == "01")
+            if (n.stat == "01") {
                 ui->tableWidget->setItem(rowcount, 13, new QTableWidgetItem("启用"));
-            else
+                ui->tableWidget->item(rowcount, 13)->setForeground(QBrush(QColor(0, 255, 0)));
+            } else {
                 ui->tableWidget->setItem(rowcount, 13, new QTableWidgetItem("禁用"));
+                ui->tableWidget->item(rowcount, 13)->setForeground(QBrush(QColor(255, 0, 0)));
+            }
             pos += 10;
             n.run_style = *pos;
             ui->tableWidget->setItem(rowcount, 14, new QTableWidgetItem(run_style(n.run_style)));
@@ -137,6 +177,8 @@ void CollectionMonitoringClass::analysis6012(QList<QString> list6012) {
         ui->tableWidget->item(j, 1)->setTextAlignment(Qt::AlignCenter);
         ui->tableWidget->item(j, 3)->setTextAlignment(Qt::AlignCenter);
     }
+    ui->pushButton_3->setEnabled(true);
+    ui->pushButton_2->setEnabled(true);
 }
 
 void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
@@ -149,20 +191,34 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
             pos += 4;
             analy_6014 n;
             n.No = (*pos).toInt(nullptr, 16);
+            qDebug() << "mission ID " + QString::number(n.No);
             int ncount = -1;
             for (int l = 0; l < ui->tableWidget->rowCount(); ++l) {
                 if (ui->tableWidget->item(l, 3)->text() == QString::number(n.No))
-                    if (ui->tableWidget->item(l, 2)->text() != "事件采集方案")
+                    if (ui->tableWidget->item(l, 2)->text() != "事件采集方案") {
                         ncount = l;
+                        QPushButton *read = new QPushButton();
+                        read->setObjectName(QString::number(l));
+                        read->setFixedSize(45, 30);
+                        read->setText("读取");
+                        ui->tableWidget->setCellWidget(l, 17, (QWidget *) read);
+                        connect(read, SIGNAL(clicked()), this, SLOT(ClickedRead()));
+                    }
+
             }
             if (ncount == -1) {
                 qDebug() << "match failed";
                 return;
             }
-            int deep = (*(pos + 2) + *(pos + 3)).toInt(nullptr,16);
-            ui->tableWidget->setItem(ncount,16,new QTableWidgetItem(QString::number(deep)));
+            int deep = (*(pos + 2) + *(pos + 3)).toInt(nullptr, 16);
+            ui->tableWidget->setItem(ncount, 16, new QTableWidgetItem(QString::number(deep)));
             pos += 7;
+            qDebug() << "pos += 7" << *(pos - 1) << (*pos) << *(pos + 1);
             switch ((*pos).toInt()) {
+                default: {
+                    qDebug() << "ERROR 215";
+                    return;
+                }
                 case 0: {
                     pos += 3;
                     const int timess = (*pos).toInt(nullptr, 16);
@@ -207,12 +263,51 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
                 }   // 采集当前数据
                     break;
                 case 1: {
-                    qDebug() << "上N次暂不支持";
-                    return;
+                    pos += 2;
+                    ui->tableWidget->setItem(ncount, 4, new QTableWidgetItem(QString("采集上%1次").arg((*pos).toInt(nullptr,16))));
+                    QString showtext("");
+                    QString OAD("");
+                    pos+=2;
+                    const int timess = (*pos).toInt(nullptr, 16);
+                    for (int i = 0; i < timess; i++) {
+                        pos += 2;
+                        if (*pos == "01") {
+                            QString ROAD("");
+                            for (int j = 0; j < 4; ++j) {
+                                pos++;
+                                ROAD.append(*pos);
+                            }
+                            showtext.append(ROAD + ":");
+                            qDebug()<<"showtext"<<showtext;
+                            pos++;
+                            int const timesss = (*pos).toInt(nullptr, 16);
+                            QString OAD_list("");
+                            for (int k = 0; k < timesss; ++k) {
+                                OAD="";
+                                for (int j = 0; j < 4; ++j) {
+                                    pos++;
+                                    OAD.append(*pos);
+                                }
+                                OAD_list.append("\n        " + OAD);
+                            }
+
+                            showtext.append(OAD_list);
+                            qDebug()<<"showtext"<<showtext;
+
+                        } else {
+                            for (int j = 0; j < 4; ++j) {
+                                pos++;
+                                OAD.append(*pos);
+                            }
+                            OAD.append('\n');
+                        }
+
+                    }
+                    ui->tableWidget->setItem(ncount, 5, new QTableWidgetItem(showtext));
+                    ui->tableWidget->item(ncount, 5)->setToolTip(showtext);
                 }
                     break;
                 case 2: {
-
                     pos += 3;
                     const int timess = (*pos).toInt(nullptr, 16);
                     QString showtext("");
@@ -339,8 +434,12 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
                     break;
             }
             pos += 2;
-            qDebug() << "ncount :" << ncount;
+            qDebug() << "ncount :" << *(pos - 1) << (*pos) << *(pos + 1);
             switch ((*pos).toInt()) {
+                default: {
+                    qDebug() << "ERROR ON 3986";
+                }
+                    break;
                 case 0: {
                     ui->tableWidget->setItem(ncount, 7, new QTableWidgetItem("无电表"));
                     pos += 2;
@@ -368,6 +467,26 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
                     ui->tableWidget->setItem(ncount, 8, new QTableWidgetItem(saved_time(*pos)));
                 }
                     break;
+                case 4: {
+                    qDebug() << "一组配置序号";
+                    pos++;
+                    int len = (*pos).toInt(nullptr, 16);
+                    QString mest("");
+                    QString left;
+                    QString right;
+                    for (int i = 0; i < len; ++i) {
+                        pos++;
+                        left = *pos;
+                        pos++;
+                        right = *pos;
+                        mest.append(" " + QString::number((left + right).toInt(nullptr, 16)));
+                    }
+                    ui->tableWidget->setItem(ncount, 7, new QTableWidgetItem("一组配置序号:" + mest));
+                    pos++;
+                    pos++;
+                    ui->tableWidget->setItem(ncount, 8, new QTableWidgetItem(saved_time(*pos)));
+                }
+                    break;
             }
 
 
@@ -389,9 +508,12 @@ void CollectionMonitoringClass::analysis601C(QList<QString> list601C) {
             qDebug() << "No: " << n.No;
             int ncount = -1;
             for (int l = 0; l < ui->tableWidget->rowCount(); ++l) {
-                if (ui->tableWidget->item(l, 3)->text() == QString::number(n.No))
-
+                qDebug() << ui->tableWidget->item(l, 2)->text();
+                if (ui->tableWidget->item(l, 3)->text() == QString::number(n.No) and
+                    ui->tableWidget->item(l, 2)->text().contains("上报")) {
                     ncount = l;
+                    break;
+                }
             }
             if (ncount == -1) {
                 qDebug() << "match failed";
@@ -623,3 +745,344 @@ void CollectionMonitoringClass::clearlist() {
     ui->pushButton_2->setEnabled(false);
 }
 
+//tab2
+void CollectionMonitoringClass::Tab_2_init() {
+    ui->dateTimeEdit->setDate(QDate::currentDate());
+    ui->dateTimeEdit_2->setDate(QDate::currentDate());
+    method_4();
+    connect(ui->radioButton, SIGNAL(clicked()), this, SLOT(method_4()));
+    connect(ui->radioButton_2, SIGNAL(clicked()), this, SLOT(method_5()));
+    connect(ui->radioButton_4, SIGNAL(clicked()), this, SLOT(method_6()));
+    connect(ui->radioButton_3, SIGNAL(clicked()), this, SLOT(method_7()));
+    connect(ui->radioButton_6, SIGNAL(clicked()), this, SLOT(method_8()));
+    connect(ui->radioButton_5, SIGNAL(clicked()), this, SLOT(method_9()));
+    connect(ui->radioButton_7, SIGNAL(clicked()), this, SLOT(method_10()));
+    connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(getData()));
+}
+
+void CollectionMonitoringClass::method_4() {
+//采集启动时间
+    ui->label->show();
+    ui->dateTimeEdit->show();
+    ui->label->setText("采集启动时间");
+//采集结束时间
+    ui->label_2->hide();
+    ui->dateTimeEdit_2->hide();
+//时间间隔
+    ui->label_3->hide();
+    ui->lineEdit->hide();
+    ui->comboBox->hide();
+//上N次
+    ui->label_5->hide();
+    ui->lineEdit_3->hide();
+    //集合
+    ui->label_4->show();
+    ui->comboBox_2->show();
+    ui->lineEdit_2->show();
+}
+
+void CollectionMonitoringClass::method_5() {
+//采集启动时间
+    ui->label->show();
+    ui->label->setText("采集存储时间");
+    ui->dateTimeEdit->show();
+//采集结束时间
+    ui->label_2->hide();
+    ui->dateTimeEdit_2->hide();
+//时间间隔
+    ui->label_3->hide();
+    ui->lineEdit->hide();
+    ui->comboBox->hide();
+//上N次
+    ui->label_5->hide();
+    ui->lineEdit_3->hide();
+    //集合
+    ui->label_4->show();
+    ui->comboBox_2->show();
+    ui->lineEdit_2->show();
+}
+
+void CollectionMonitoringClass::method_6() {
+//采集启动时间
+    ui->label->show();
+    ui->label->setText("采集启动时间");
+    ui->dateTimeEdit->show();
+//采集结束时间
+    ui->label_2->show();
+    ui->label_2->setText("采集启动结束时间");
+    ui->dateTimeEdit_2->show();
+//时间间隔
+    ui->label_3->show();
+    ui->lineEdit->show();
+    ui->comboBox->show();
+//上N次
+    ui->label_5->hide();
+    ui->lineEdit_3->hide();
+    //集合
+    ui->label_4->show();
+    ui->comboBox_2->show();
+    ui->lineEdit_2->show();
+}
+
+void CollectionMonitoringClass::method_7() {
+//采集启动时间
+    ui->label->show();
+    ui->label->setText("采集存储起始时间");
+    ui->dateTimeEdit->show();
+//采集结束时间
+    ui->label_2->show();
+    ui->label_2->setText("采集存储结束时间");
+    ui->dateTimeEdit_2->show();
+//时间间隔
+    ui->label_3->show();
+    ui->lineEdit->show();
+    ui->comboBox->show();
+//上N次
+    ui->label_5->hide();
+    ui->lineEdit_3->hide();
+    //集合
+    ui->label_4->show();
+    ui->comboBox_2->show();
+    ui->lineEdit_2->show();
+}
+
+void CollectionMonitoringClass::method_8() {
+//采集启动时间
+    ui->label->show();
+    ui->label->setText("采集成功起始时间");
+    ui->dateTimeEdit->show();
+//采集结束时间
+    ui->label_2->show();
+    ui->label_2->setText("采集成功结束时间");
+    ui->dateTimeEdit_2->show();
+//时间间隔
+    ui->label_3->show();
+    ui->lineEdit->show();
+    ui->comboBox->show();
+//上N次
+    ui->label_5->hide();
+    ui->lineEdit_3->hide();
+    //集合
+    ui->label_4->show();
+    ui->comboBox_2->show();
+    ui->lineEdit_2->show();
+}
+
+void CollectionMonitoringClass::method_9() {
+    ui->label->hide();
+    ui->dateTimeEdit->hide();
+//采集结束时间
+    ui->label_2->hide();
+    ui->dateTimeEdit_2->hide();
+//时间间隔
+    ui->label_3->hide();
+    ui->lineEdit->hide();
+    ui->comboBox->hide();
+//上N次
+    ui->label_5->show();
+    ui->lineEdit_3->show();
+//集合
+    ui->label_4->hide();
+    ui->comboBox_2->hide();
+    ui->lineEdit_2->hide();
+}
+
+void CollectionMonitoringClass::method_10() {
+//采集启动时间
+    ui->label->hide();
+    ui->dateTimeEdit->hide();
+//采集结束时间
+    ui->label_2->hide();
+    ui->dateTimeEdit_2->hide();
+//时间间隔
+    ui->label_3->hide();
+    ui->lineEdit->hide();
+    ui->comboBox->hide();
+//上N次
+    ui->label_5->show();
+    ui->lineEdit_3->show();
+    //集合
+    ui->label_4->show();
+    ui->comboBox_2->show();
+    ui->lineEdit_2->show();
+}
+
+
+void CollectionMonitoringClass::getData() {
+    QString APDU = "05030060120300";
+    if (ui->radioButton->isChecked() or ui->radioButton_2->isChecked()) {//方法4/5
+        if (ui->radioButton->isChecked())
+            APDU.append("04");
+        else
+            APDU.append("05");
+        auto time = ui->dateTimeEdit->text();
+        APDU.append(ReTimeHex(time));
+    } else {
+        if (ui->radioButton_4->isChecked() or ui->radioButton_3->isChecked() or ui->radioButton_6->isChecked()) {
+            if (ui->radioButton_4->isChecked())
+                APDU.append("06");
+            if (ui->radioButton_3->isChecked())
+                APDU.append("07");
+            if (ui->radioButton_6->isChecked())
+                APDU.append("08");
+            auto time = ui->dateTimeEdit->text();
+            auto time2 = ui->dateTimeEdit_2->text();
+            APDU.append(ReTimeHex(time));
+            APDU.append(ReTimeHex(time2));
+            APDU.append(QString().sprintf("%02d", ui->comboBox->currentIndex()) +
+                        QString().sprintf("%04x", ui->lineEdit->text().toInt()));
+        } else {
+            if (ui->radioButton_5->isChecked()) {//9
+                APDU.append("09" + QString().sprintf("%02x", ui->lineEdit_3->text().toInt()));
+            } else {//10
+                APDU.append("0a" + QString().sprintf("%02x", ui->lineEdit_3->text().toInt()));
+            }
+        }
+    }
+
+    switch (ui->comboBox_2->currentIndex()) {  //MS
+        case 0: {
+            qDebug() << "ERROR 878";
+            return;
+        }
+        case 1: {//全部用户地址
+            APDU.append("01");
+        }
+            break;
+        case 2: {//用户类型
+            APDU.append("02");
+            auto meter = ui->lineEdit_2->text();
+            meter.append(",");
+            auto meter_sp = meter.split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", meter_sp.count());
+            APDU.append(count);
+            for (int i = 0; i < meter_sp.count(); ++i) {
+                APDU.append(QString().sprintf("%02x", meter_sp[i].toInt()));
+            }
+        }
+            break;
+        case 3: {//用户地址
+            APDU.append("03");
+            auto meter = ui->lineEdit_2->text();
+            meter.append(",");
+            auto meter_sp = meter.split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", meter_sp.count());
+            APDU.append(count);
+            for (int i = 0; i < meter_sp.count(); ++i) {
+                auto x = StringAddSpace(meter_sp[i]).split(" ");
+                for (int j = 0; j < x.length() / 2; ++j) {
+                    auto c = x[j];
+                    x[j] = x[x.length() - 1 - j];
+                    x[x.length() - 1 - j] = c;
+                }
+                QString text("");
+                for (int k = 0; k < x.length(); ++k) {
+                    text.append(x[k]);
+                }
+                APDU.append("0705" + text);
+            }
+        }
+            break;
+        case 4: {//用户序号
+            APDU.append("04");
+            auto meter = ui->lineEdit_2->text();
+            meter.append(",");
+            auto meter_sp = meter.split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", meter_sp.count());
+            APDU.append(count);
+            for (int i = 0; i < meter_sp.count(); ++i) {
+                APDU.append(QString().sprintf("%04x", meter_sp[i].toInt()));
+            }
+        }
+
+
+    }
+
+    switch (ui->comboBox_3->currentIndex()) {  //采集类型
+        default: {
+            qDebug() << "ERROR 935";
+            return;
+        }
+        case 0: { //实时
+            auto OAD = ui->comboBox_4->currentText().split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", OAD.length());
+            APDU.append(count);
+            for (int i = 0; i < OAD.length(); ++i) {
+                APDU.append("00" + OAD[i]);
+            }
+            APDU.append("00");
+        }
+            break;
+        case 1: { //曲线
+            auto OAD = ui->comboBox_4->currentText().split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", OAD.length());
+            APDU.append("020150020200");
+            APDU.append(count);
+            for (int i = 0; i < OAD.length(); ++i) {
+                APDU.append(OAD[i]);
+            }
+            APDU.append("00202a020000");
+        }
+            break;
+        case 2: { //日冻结
+            auto OAD = ui->comboBox_4->currentText().split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", OAD.length());
+            APDU.append("020150040200");
+            APDU.append(count);
+            for (int i = 0; i < OAD.length(); ++i) {
+                APDU.append(OAD[i]);
+            }
+            APDU.append("00202a020000");
+        }
+            break;
+
+        case 3: { //月冻结
+            auto OAD = ui->comboBox_4->currentText().split(",", QString::SkipEmptyParts);
+            auto count = QString().sprintf("%02x", OAD.length());
+            APDU.append("020150060200");
+            APDU.append(count);
+            for (int i = 0; i < OAD.length(); ++i) {
+                APDU.append(OAD[i]);
+            }
+            APDU.append("00202a020000");
+        }
+            break;
+    }
+    qDebug() << "APDU:" << APDU;
+    if (APDU == "")
+        return;
+    emit send_message({BuildMessage(APDU, re_rever_add(), "43"), ""});
+}
+
+
+void CollectionMonitoringClass::ClickedRead() {
+    auto *rec = (QAction *) sender();
+    QString CSD_data = ui->tableWidget->item(rec->objectName().toInt(), 5)->text();
+    QStringList sp, OAD;
+    if (ui->tableWidget->item(rec->objectName().toInt(), 4)->text() == "采集当前数据") {
+        ui->comboBox_3->setCurrentIndex(0);
+        OAD = CSD_data.split("\n", QString::SkipEmptyParts);
+        qDebug() << OAD[0];
+    } else {
+        sp = CSD_data.split(":");
+        qDebug() << sp[0] << " " << sp[1];
+        if (sp[0] == "50040200") {
+            ui->comboBox_3->setCurrentIndex(2);
+        } else {
+            if (sp[0] == "50020200") {
+                ui->comboBox_3->setCurrentIndex(1);
+            } else {
+                ui->comboBox_3->setCurrentIndex(3);
+            }
+        }
+        OAD = sp[1].split("\n        ", QString::SkipEmptyParts);
+    }
+    QString OAD_TEXT;
+    for (int i = 0; i < OAD.count(); ++i) {
+        OAD_TEXT.append(OAD[i] + ",");
+    }
+    ui->comboBox_4->insertItem(0, OAD_TEXT);
+    ui->comboBox_4->setCurrentIndex(0);
+
+    ui->tabWidget->setCurrentIndex(1);
+}
