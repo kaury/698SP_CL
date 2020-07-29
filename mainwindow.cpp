@@ -5,18 +5,24 @@
 #include <iostream>
 #include <QScrollBar>
 #include <QtWidgets/QInputDialog>
-#include "XMLFile/tinyxml2.h"
 #include <QKeyEvent>
 #include <QApplication>
 #include <QClipboard>
+#include <QDesktopServices>
 
-#define ver "698主站 x64 v20.04.20"
+#define ver "698主站测试版 x64 20.06.22"
 
 using namespace std;
 
 extern QString BuildMessage(const QString &apdu, const QString &SA, const QString &ctrl_zone);
 
 extern QString StringAddSpace(QString &input);
+
+#ifndef globe_flag
+#define globe_flag
+int globe_flag_6012;
+#endif
+#define LOG() qDebug()<< '[' << __FILE__ << ":" << __LINE__ << "]"
 
 MainWindow::MainWindow(QWidget *parent) :
         QMainWindow(parent),
@@ -46,8 +52,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(clear_view()));
     connect(ui->actionC, SIGNAL(triggered()), this, SLOT(op_analy()));
     ui->actiononline->setEnabled(false);
-    connect(ui->actiononline, SIGNAL(triggered()), this, SLOT(OnlineModel()));
+//    connect(ui->actiononline, SIGNAL(triggered()), this, SLOT(OnlineModel()));
 
+    this->SpecialFunctions();
     setWindowState(Qt::WindowMaximized);
     QAction *attach4520;
     attach4520 = new QAction();
@@ -55,6 +62,14 @@ MainWindow::MainWindow(QWidget *parent) :
     attach4520->setText("Build_4520");
     ui->menu_4->addAction(attach4520);
     connect(attach4520, SIGNAL(triggered()), this, SLOT(open_attach()));
+
+    QAction *update_inner;
+    update_inner = new QAction();
+    update_inner->setObjectName(QStringLiteral("update"));
+    update_inner->setText("检测更新(内网)");
+    ui->menu->addAction(update_inner);
+    connect(update_inner, SIGNAL(triggered()), this, SLOT(inner_net()));
+
 
     QAction *update;
     update = new QAction();
@@ -77,7 +92,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(MeterArchive, SIGNAL(send_write(QList<QString>)), serial, SLOT(write(QList<QString>)),
             Qt::UniqueConnection);
     connect(this, SIGNAL(deal_with_meter(QList<QString>)), MeterArchive, SLOT(
-            show_meter_message(QList<QString>)));
+                                                                                 show_meter_message(QList<QString>)));
 
 
     Parametric_variable = new _4_Parametric_variable();
@@ -98,7 +113,6 @@ MainWindow::MainWindow(QWidget *parent) :
             Qt::QueuedConnection);
     connect(this, SIGNAL(deal_601C(QList<QString>)), CollectionMonitoring, SLOT(analysis601C(QList<QString>)),
             Qt::QueuedConnection);
-
 
     QList<QMdiSubWindow *> p = ui->mdiArea->subWindowList();
     for (auto &j : p) {
@@ -221,7 +235,8 @@ QString MainWindow::analysis(QString a) {
     doc.LoadFile("config.xml");
     tinyxml2::XMLElement *root = doc.RootElement();
     tinyxml2::XMLElement *first_child1 = root->FirstChildElement("add");
-    qDebug()<<"add: "<<add;
+//    qDebug() << "add: " << add;
+    LOG() << "add: " << add;
     QByteArray ba2;
     ba2.append(add);     //也可以 ba2 = s2.toLatin1();
     const char *content2 = ba2.data();
@@ -293,6 +308,7 @@ QString MainWindow::analysis(QString a) {
 //                        qDebug() << "收到表档案信息: " << n.DATA;
                         emit deal_with_meter(n.DATA);
                     } else {
+                        globe_flag_6012 = 0;
                         if (n.OAD == "60120200") {
 //                            qDebug() << "收到6012信息: " << n.DATA;
                             emit deal_6012(n.DATA);
@@ -313,8 +329,8 @@ QString MainWindow::analysis(QString a) {
 //                    emit send_analysis(n.OAD + " : " + deal_data(n.DATA));//解析
                 }
                     break;
-                case 0x3:{
-//todo
+                case 0x3: {
+//todo 数据分析
                 }
                     break;
                 case 0x5: {
@@ -331,11 +347,11 @@ QString MainWindow::analysis(QString a) {
                     }
                     n.GET_RESULT_TYPE = list[apdu_0 + 12];
                     n.DATA = list.mid(apdu_0 + 13, list.length() - apdu_0 - 11);
-
                     if (n.OAD == "60000200") {
 //                        qDebug() << "收到多表档案信息";
                         emit deal_with_meter(n.DATA);
                     } else {
+                        globe_flag_6012 = 1;
                         if (n.OAD == "60120200") {
 
                             emit deal_6012(n.DATA);
@@ -359,8 +375,9 @@ QString MainWindow::analysis(QString a) {
                         return QString().sprintf("收到分帧,第%d帧", times);
                     }
                     if (n.is_last_frame == "01") {
-                        const QString last = QString().sprintf("最后一帧,共%d帧",times+1);
+                        const QString last = QString().sprintf("最后一帧,共%d帧", times + 1);
                         times = 0;
+                        globe_flag_6012 = 0;
                         return last;
                     }
                 }
@@ -461,7 +478,8 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::about() {
-    QMessageBox::information(this, "关于", "698主站64位 CMake \n QT版本: 5.13.2", QMessageBox::Ok);
+    QMessageBox::information(this, "关于", QString::fromStdString(ver) + " \nCMake\nQT版本:"+QT_VERSION_STR ,
+                             QMessageBox::Ok);
 }
 
 void MainWindow::serial_config() {
@@ -497,7 +515,7 @@ void MainWindow::show_message_send(QList<QString> a) {
     }
     current += 1;
     move_Cursor();
-    logging->write(x +" "+a[1].replace("\n", "") +" \n发送: " + StringAddSpace(a[0])+"\n");
+    logging->write(x + " " + a[1].replace("\n", "") + " \n发送: " + StringAddSpace(a[0]) + "\n");
 }
 
 void MainWindow::show_message_receive(QString a) {
@@ -511,7 +529,7 @@ void MainWindow::show_message_receive(QString a) {
     QString te = analysis(a);
     QStringList list = a.split(' ', QString::SkipEmptyParts);
     while (true) {
-        if (list.begin()==list.end())
+        if (list.begin() == list.end())
             return;
         if (list[0] == "68")
             break;
@@ -531,7 +549,7 @@ void MainWindow::show_message_receive(QString a) {
     }
     current += 1;
     move_Cursor();
-    logging->write(x +" "+te+ " \n收到: " + a+"\n");
+    logging->write(x + " " + te + " \n收到: " + a + "\n");
 }
 
 void MainWindow::Communication_parameters() {
@@ -783,10 +801,17 @@ QString MainWindow::DARType(int a) {
     }
 }
 
-void MainWindow::OnlineModel() {
-    online = new Online();
-    online->show();
+void MainWindow::SpecialFunctions() {
+    specialfunc = new SpecialFuncs();
+    SpecialFunc_point = ui->mdiArea->addSubWindow(specialfunc,
+                                                  Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
+    SpecialFunc_point->setWindowIcon(QIcon(":/main/ico/Smart Folder.ico"));
+    SpecialFunc_point->widget()->showMaximized();
+    connect(specialfunc, SIGNAL(send_write(QList<QString>)), serial, SLOT(write(QList<QString>)), Qt::UniqueConnection);
+
 }
 
 
-
+void MainWindow::inner_net() {
+    QDesktopServices::openUrl(QUrl(QLatin1String("ftp://172.18.51.79/698SP_CL.exe")));
+}

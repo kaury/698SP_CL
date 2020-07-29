@@ -5,6 +5,9 @@
 #include "CollectionMonitoringClassObject.h"
 #include "QAction"
 #include "vector"
+#include <BasicExcel/BasicExcel.h>
+#include <QtWidgets/QPlainTextEdit>
+
 
 #pragma execution_character_set("utf-8")
 
@@ -13,6 +16,8 @@ extern auto BuildMessage(const QString &apdu, const QString &SA, const QString &
 extern QString time_deal(const QString &);
 
 extern QString fre(const QString &);
+
+extern QString dealTime(const QString &);
 
 extern QString re_rever_add();
 
@@ -23,6 +28,8 @@ extern QString mision_style(const QString &);
 extern QString saved_time(const QString &);
 
 extern QString StringAddSpace(QString &input);
+
+extern bool GetExcelValue(YExcel::BasicExcelCell *pCell, QString &str);
 
 QString ReTimeHex(QString time) {
     auto date = time.split(" ");
@@ -40,24 +47,24 @@ QString ReTimeHex(QString time) {
     return year + mouth + day + hour + min + sec;
 }
 
-QString ReCollect(int x) {
-    switch (x) {
-        default: {
-            qDebug() << "ERROR 46";
-        }
-        case 0: {
-
-        }
-            break;
-        case 1:
-            return "50020200";
-        case 2:
-            return "50040200";
-        case 3:
-            return "50060200";
-    }
-
-}
+//QString ReCollect(int x) {
+//    switch (x) {
+//        default: {
+//            qDebug() << "ERROR 46";
+//        }
+//        case 0: {
+//
+//        }
+//            break;
+//        case 1:
+//            return "50020200";
+//        case 2:
+//            return "50040200";
+//        case 3:
+//            return "50060200";
+//    }
+//
+//}
 
 CollectionMonitoringClass::CollectionMonitoringClass(QWidget *parent) : QDialog(parent),
                                                                         ui(new Ui::FormCOLLECTIONMONITORINGCLASSOBJECT) {
@@ -79,9 +86,12 @@ CollectionMonitoringClass::CollectionMonitoringClass(QWidget *parent) : QDialog(
     }
 //    ui->tableWidget->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     Tab_2_init();
+    Tab_3_init();
+    Tab_4_init();
     ui->tabWidget->setCurrentIndex(0);
 }
 
+//tab1
 void CollectionMonitoringClass::analysis6012(QList<QString> list6012) {
     auto pos = list6012.begin();
     if (*pos == "01") {
@@ -177,8 +187,11 @@ void CollectionMonitoringClass::analysis6012(QList<QString> list6012) {
         ui->tableWidget->item(j, 1)->setTextAlignment(Qt::AlignCenter);
         ui->tableWidget->item(j, 3)->setTextAlignment(Qt::AlignCenter);
     }
-    ui->pushButton_3->setEnabled(true);
-    ui->pushButton_2->setEnabled(true);
+    if (globe_flag_6012 == 0) {
+        ui->pushButton->setEnabled(true);
+        ui->pushButton_3->setEnabled(true);
+        ui->pushButton_2->setEnabled(true);
+    }
 }
 
 void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
@@ -264,10 +277,11 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
                     break;
                 case 1: {
                     pos += 2;
-                    ui->tableWidget->setItem(ncount, 4, new QTableWidgetItem(QString("采集上%1次").arg((*pos).toInt(nullptr,16))));
+                    ui->tableWidget->setItem(ncount, 4,
+                                             new QTableWidgetItem(QString("采集上%1次").arg((*pos).toInt(nullptr, 16))));
                     QString showtext("");
                     QString OAD("");
-                    pos+=2;
+                    pos += 2;
                     const int timess = (*pos).toInt(nullptr, 16);
                     for (int i = 0; i < timess; i++) {
                         pos += 2;
@@ -278,12 +292,12 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
                                 ROAD.append(*pos);
                             }
                             showtext.append(ROAD + ":");
-                            qDebug()<<"showtext"<<showtext;
+                            qDebug() << "showtext" << showtext;
                             pos++;
                             int const timesss = (*pos).toInt(nullptr, 16);
                             QString OAD_list("");
                             for (int k = 0; k < timesss; ++k) {
-                                OAD="";
+                                OAD = "";
                                 for (int j = 0; j < 4; ++j) {
                                     pos++;
                                     OAD.append(*pos);
@@ -292,7 +306,7 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
                             }
 
                             showtext.append(OAD_list);
-                            qDebug()<<"showtext"<<showtext;
+                            qDebug() << "showtext" << showtext;
 
                         } else {
                             for (int j = 0; j < 4; ++j) {
@@ -491,6 +505,11 @@ void CollectionMonitoringClass::analysis6014(QList<QString> list6014) {
 
 
         }
+    }
+    if (globe_flag_6012 == 0) {
+        ui->pushButton->setEnabled(true);
+        ui->pushButton_3->setEnabled(true);
+        ui->pushButton_2->setEnabled(true);
     }
 }
 
@@ -696,6 +715,8 @@ void CollectionMonitoringClass::analysis601C(QList<QString> list601C) {
                         return;
                     }
                     case 1: {
+                        qDebug() << "全部用户地址 ";
+                        ui->tableWidget->setItem(ncount, 7, new QTableWidgetItem("全部用户地址"));
 
                     }
                         break;
@@ -721,9 +742,18 @@ void CollectionMonitoringClass::analysis601C(QList<QString> list601C) {
 
         }
     }
+    if (globe_flag_6012 == 0) {
+        ui->pushButton->setEnabled(true);
+        ui->pushButton_3->setEnabled(true);
+        ui->pushButton_2->setEnabled(true);
+    }
 }
 
 void CollectionMonitoringClass::sendmessage() {
+    globe_flag_6012 = 1;
+    ui->pushButton_3->setDisabled(true);
+    ui->pushButton_2->setDisabled(true);
+    ui->pushButton->setDisabled(true);
     QAction *action = (QAction *) sender();
     QString add = re_rever_add();
     qDebug() << action->objectName();
@@ -738,11 +768,15 @@ void CollectionMonitoringClass::sendmessage() {
 }
 
 void CollectionMonitoringClass::clearlist() {
+    if (ui->tableWidget->rowCount() == 0) {
+        ui->pushButton->setEnabled(true);
+    }
     for (int row = ui->tableWidget->rowCount(); row >= 0; --row) {
         ui->tableWidget->removeRow(row);
     }
     ui->pushButton_3->setEnabled(false);
     ui->pushButton_2->setEnabled(false);
+
 }
 
 //tab2
@@ -969,17 +1003,18 @@ void CollectionMonitoringClass::getData() {
             auto count = QString().sprintf("%02x", meter_sp.count());
             APDU.append(count);
             for (int i = 0; i < meter_sp.count(); ++i) {
-                auto x = StringAddSpace(meter_sp[i]).split(" ");
-                for (int j = 0; j < x.length() / 2; ++j) {
-                    auto c = x[j];
-                    x[j] = x[x.length() - 1 - j];
-                    x[x.length() - 1 - j] = c;
-                }
-                QString text("");
-                for (int k = 0; k < x.length(); ++k) {
-                    text.append(x[k]);
-                }
-                APDU.append("0705" + text);
+//                auto x = StringAddSpace(meter_sp[i]).split(" ");
+//                for (int j = 0; j < x.length() / 2; ++j) {
+//                    auto c = x[j];
+//                    x[j] = x[x.length() - 1 - j];
+//                    x[x.length() - 1 - j] = c;
+//                }
+//                QString text("");
+//                for (int k = 0; k < x.length(); ++k) {
+//                    text.append(x[k]);
+//                }
+
+                APDU.append("0705" + meter_sp[i]);
             }
         }
             break;
@@ -1085,4 +1120,666 @@ void CollectionMonitoringClass::ClickedRead() {
     ui->comboBox_4->setCurrentIndex(0);
 
     ui->tabWidget->setCurrentIndex(1);
+}
+
+//tab3
+void CollectionMonitoringClass::Tab_3_init() {
+/*
+ * ui
+ */
+    QWidget *tab3 = new QWidget();
+    tab3->setObjectName("tab3");
+    ui->tabWidget->addTab(tab3, "6012批量制作");
+    compose6012 = new QTableWidget(tab3);
+    compose6012->setSelectionMode(QAbstractItemView::NoSelection);
+    compose6012->setAlternatingRowColors(true);
+
+    QStringList colo = QStringList() << "任务ID" << "执行频率" << "方案类型" << "方案编号" << "开始时间" << "结束时间" << "延时" <<
+                                     "优先级" << "状态" << "脚本id(前,后)" << "任务运行类型" << "时段";
+    compose6012->setColumnCount(colo.count());
+    compose6012->setHorizontalHeaderLabels(colo);
+
+    QPushButton *add = new QPushButton();
+    add->setText("添加");
+    connect(add, SIGNAL(clicked()), this, SLOT(tab_3_add()));
+    QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    sizePolicy.setHorizontalStretch(0);
+    sizePolicy.setVerticalStretch(0);
+    sizePolicy.setHeightForWidth(add->sizePolicy().hasHeightForWidth());
+    add->setSizePolicy(sizePolicy);
+
+    QPushButton *del = new QPushButton();
+    del->setText("删除");
+    del->setSizePolicy(sizePolicy);
+    connect(del, SIGNAL(clicked()), this, SLOT(tab_3_del()));
+
+    QPushButton *output = new QPushButton();
+    output->setText("导出excel");
+    output->setSizePolicy(sizePolicy);
+    connect(output, SIGNAL(clicked()), this, SLOT(tab_3_output()));
+
+
+    QPushButton *input = new QPushButton();
+    input->setText("导入excel");
+    input->setSizePolicy(sizePolicy);
+    connect(input, SIGNAL(clicked()), this, SLOT(tab_3_input()));
+
+    QPushButton *clear = new QPushButton();
+    clear->setText("清除所有");
+    clear->setSizePolicy(sizePolicy);
+    connect(clear, SIGNAL(clicked()), this, SLOT(tab_3_clear()));
+
+    QPushButton *generate = new QPushButton();
+    generate->setText("生成APDU");
+    generate->setSizePolicy(sizePolicy);
+    connect(generate, SIGNAL(clicked()), this, SLOT(tab_3_generate()));
+
+    QPushButton *xml = new QPushButton();
+    xml->setText("打包成xml");
+    xml->setSizePolicy(sizePolicy);
+    connect(xml, SIGNAL(clicked()), this, SLOT(tab_3_generate_xml()));
+
+    QPushButton *se = new QPushButton();
+    se->setText("下发");
+    se->setSizePolicy(sizePolicy);
+    connect(se, SIGNAL(clicked()), this, SLOT(tab_3_send()));
+
+    QHBoxLayout *hor = new QHBoxLayout();
+
+    hor->addWidget(add);
+    hor->addWidget(del);
+    hor->addWidget(clear);
+    hor->addWidget(input);
+    hor->addWidget(output);
+    hor->addWidget(generate);
+    hor->addWidget(xml);
+    hor->addWidget(se);
+
+    auto *horizontalSpacer_3 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    hor->addItem(horizontalSpacer_3);
+
+    QVBoxLayout *layout_wiget = new QVBoxLayout(tab3);
+
+    auto *textplain = new QPlainTextEdit();
+    textplain->setPlainText("方案类型:\n"
+                            "{\n   普通采集方案（1）,\n   事件采集方案（2）,\n"
+                            "   透明方案（3）,\n   上报方案（4）,\n"
+                            "   脚本方案（5）\n}\n"
+                            "任务运行类型:\n"
+                            "{\n   前闭后开（0）,\n   前开后闭（1）,\n"
+                            "   前闭后闭（2）,\n   前开后开（3）\n}");
+    textplain->setReadOnly(true);
+    QSizePolicy sizePolicy2(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    sizePolicy2.setHorizontalStretch(0);
+    sizePolicy2.setVerticalStretch(0);
+    sizePolicy2.setHeightForWidth(add->sizePolicy().hasHeightForWidth());
+    textplain->setSizePolicy(sizePolicy2);
+
+    auto *lay = new QHBoxLayout();
+    lay->addWidget(compose6012);
+    lay->addWidget(textplain);
+    layout_wiget->addLayout(lay);
+    layout_wiget->addLayout(hor);
+
+}
+
+void CollectionMonitoringClass::tab_3_add() {
+    auto rowCount = compose6012->rowCount();
+    compose6012->insertRow(rowCount);
+    compose6012->setItem(rowCount, 0, new QTableWidgetItem(QString::number(rowCount + 1)));
+    compose6012->setItem(rowCount, 1, new QTableWidgetItem("3:1"));
+    compose6012->setItem(rowCount, 2, new QTableWidgetItem("1"));
+    compose6012->setItem(rowCount, 3, new QTableWidgetItem(QString::number(rowCount + 1)));
+    compose6012->setItem(rowCount, 4, new QTableWidgetItem("2019-01-01_00:00:00"));
+    compose6012->setItem(rowCount, 5, new QTableWidgetItem("2099-01-01_00:00:00"));
+    compose6012->setItem(rowCount, 6, new QTableWidgetItem("1:15"));
+    compose6012->setItem(rowCount, 7, new QTableWidgetItem("2"));
+    compose6012->setItem(rowCount, 8, new QTableWidgetItem("1"));
+    compose6012->setItem(rowCount, 9, new QTableWidgetItem("0,0"));
+    compose6012->setItem(rowCount, 10, new QTableWidgetItem("0"));
+    compose6012->setItem(rowCount, 11, new QTableWidgetItem("0:0-23:59"));
+    for (int i = 0; i < 12; ++i) {
+        compose6012->item(rowCount, i)->setTextAlignment(Qt::AlignCenter);
+        compose6012->horizontalHeader()->setSectionResizeMode(i, QHeaderView::ResizeToContents);
+    }
+
+
+}
+
+void CollectionMonitoringClass::tab_3_del() {
+    compose6012->removeRow(compose6012->currentRow());
+}
+
+void CollectionMonitoringClass::tab_3_clear() {
+    const int row = compose6012->rowCount();
+    for (int i = 0; i < row; ++i) {
+        compose6012->removeRow(0);
+    }
+}
+
+void CollectionMonitoringClass::tab_3_input() {
+    {
+        QString filename = QFileDialog::getOpenFileName(nullptr, "open", ".", "*.xls");
+        YExcel::BasicExcel excelTermInfo;
+        wchar_t szBuf[1024];
+        wcscpy_s(reinterpret_cast<wchar_t *>(szBuf),
+                 sizeof(szBuf) / sizeof(wchar_t),
+                 reinterpret_cast<const wchar_t *>(filename.utf16()));
+
+        const wchar_t *wstr = szBuf;
+        if (!excelTermInfo.Load(szBuf)) {
+            QMessageBox::warning(nullptr, "warming", "Open failed");
+            return;
+        }
+        tab_3_clear();
+        YExcel::BasicExcelWorksheet *pSheet = excelTermInfo.GetWorksheet((size_t) 0);
+        YExcel::BasicExcelCell *pCell;
+
+        int nMaxRows = pSheet->GetTotalRows();
+        int nMaxCols = pSheet->GetTotalCols();
+        int nCol, nRow;
+        QString strTmp;
+        for (nRow = 1; nRow < nMaxRows; nRow++) {
+            nCol = 0;
+            compose6012->insertRow(compose6012->rowCount());
+            for (int i = 0; i < 12; ++i) {
+                pCell = pSheet->Cell(nRow, nCol++);
+                GetExcelValue(pCell, strTmp);
+                compose6012->setItem(compose6012->rowCount() - 1, nCol - 1, new QTableWidgetItem(strTmp));
+            }
+            for (int j = 0; j < 12; ++j) {
+                compose6012->item(compose6012->rowCount() - 1, j)->setTextAlignment(Qt::AlignCenter);
+                compose6012->horizontalHeader()->setSectionResizeMode(j, QHeaderView::ResizeToContents);
+            }
+        }
+    }
+}
+
+void CollectionMonitoringClass::tab_3_output() {
+    {
+        QString
+                filename = QFileDialog::getSaveFileName(this, tr("Save"), ".", tr(" (*.xls)"));
+        if (filename.isEmpty()) {
+            return;
+        }
+        YExcel::BasicExcel excelTermInfo;
+        excelTermInfo.New();
+        YExcel::BasicExcelWorksheet *pSheet = excelTermInfo.GetWorksheet((size_t) 0);
+        YExcel::BasicExcelCell *pCell;
+        int nItemNum = compose6012->rowCount();
+        int nCol, nRow, i;
+        nCol = 0;
+        nRow = 0;
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"任务ID");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"执行频率");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"方案类型");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"方案编号");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"开始时间");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"结束时间");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"延时");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"优先级");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"状态");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"脚本id(前,后)");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"任务运行类型");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"时段");
+        nRow = 1;
+        for (i = 0; i < compose6012->rowCount(); i++, nRow++) {
+            nCol = 0;
+            for (int j = 0; j < 12; ++j) {
+                pCell = pSheet->Cell(nRow, nCol);
+                pCell->SetString(compose6012->item(i, nCol++)->text().toStdString().c_str());
+            }
+
+        }
+        excelTermInfo.SaveAs(filename.toStdString().c_str());
+        QMessageBox::information(this, "提示", "导出完成");
+    }
+}
+
+void CollectionMonitoringClass::tab_3_generate() {
+    QStringList lists;
+    tab_3_compose6012(&lists);
+    auto *dia = new QDialog();
+    dia->resize(500, 300);
+    QVBoxLayout *layout = new QVBoxLayout(dia);
+    auto *textPlain = new QTextEdit(dia);
+    textPlain->setWindowTitle("生成的APDU");
+    layout->addWidget(textPlain);
+            foreach(QString a, lists) {
+            textPlain->append(StringAddSpace(a));
+        }
+    dia->exec();
+}
+
+void CollectionMonitoringClass::tab_3_generate_xml() {
+    QStringList lists;
+    tab_3_compose6012(&lists);
+    auto *dia = new QDialog();
+    dia->resize(500, 300);
+    QVBoxLayout *layout = new QVBoxLayout(dia);
+    auto *textPlain = new QTextEdit(dia);
+    textPlain->setWindowTitle("生成的APDU");
+    layout->addWidget(textPlain);
+            foreach(QString a, lists) {
+            auto id = (QString(a.at(24)) + QString(a.at(25))).toInt(nullptr, 16);
+            textPlain->append("<ACT6012  TASKID=\"" + QString::number(id) + "\" APDU=\"" + StringAddSpace(a) + "\" />");
+        }
+    dia->exec();
+}
+
+bool CollectionMonitoringClass::tab_3_compose6012(QStringList *relist) {
+    QStringList list_apdu, sp;
+    QString x, temp;
+    for (int i = 0; i < compose6012->rowCount(); ++i) {
+        x = "07010060127f000101020c11";
+        temp = QString().sprintf("%02x", compose6012->item(i, 0)->text().toInt());
+        x.append(temp);
+        sp = compose6012->item(i, 1)->text().split(":");
+        x.append("54" + QString().sprintf("%02x", sp[0].toInt()) + QString().sprintf("%04x", sp[1].toInt()));
+        x.append("16" + QString().sprintf("%02x", compose6012->item(i, 2)->text().toInt()));
+        x.append("11" + QString().sprintf("%02x", compose6012->item(i, 3)->text().toInt()));
+        temp = dealTime(compose6012->item(i, 4)->text());
+        x.append("1c" + temp);
+        temp = dealTime(compose6012->item(i, 5)->text());
+        x.append("1c" + temp);
+        sp = compose6012->item(i, 6)->text().split(":");
+        x.append("54" + QString().sprintf("%02x", sp[0].toInt()) + QString().sprintf("%04x", sp[1].toInt()));
+        x.append("16" + QString().sprintf("%02x", compose6012->item(i, 7)->text().toInt()));
+        x.append("16" + QString().sprintf("%02x", compose6012->item(i, 8)->text().toInt()));
+        x.append("120000120000020216" + QString().sprintf("%02x", compose6012->item(i, 10)->text().toInt()));
+        x.append("01010204");
+        sp = compose6012->item(i, 11)->text().split("-");
+                foreach(QString a, sp[0].split(":")) {
+                x.append("11" + QString().sprintf("%02x", a.toInt()));
+            }
+                foreach(QString a, sp[1].split(":")) {
+                x.append("11" + QString().sprintf("%02x", a.toInt()));
+            }
+        x.append("00");
+        list_apdu.append(x);
+    }
+    *relist = list_apdu;
+    return true;
+}
+
+void CollectionMonitoringClass::tab_3_send() {
+    QStringList lists;
+    tab_3_compose6012(&lists);
+            foreach(QString a, lists) {
+            emit send_message({BuildMessage(a, re_rever_add(), "43"), ""});
+            QEventLoop eventloop;
+            QTimer::singleShot(2500, &eventloop, SLOT(quit()));
+            eventloop.exec();
+        }
+    QMessageBox::information(nullptr, "提示", "下发完成");
+}
+
+
+void CollectionMonitoringClass::Tab_4_init() {
+/*
+ * ui
+ */
+    QWidget *tab4 = new QWidget();
+    tab4->setObjectName("tab4");
+    ui->tabWidget->addTab(tab4, "6014批量制作");
+    compose6014 = new QTableWidget(tab4);
+    compose6014->setSelectionMode(QAbstractItemView::NoSelection);
+    compose6014->setAlternatingRowColors(true);
+
+    QStringList colo =
+            QStringList() << "方案编号" << "存储深度" << "采集类型(CHOICE 0-3)" << "采集类型1or3附加(:)" << "CSD(英文',')分开" << "电能表集合"
+                          << "存储时标";
+    compose6014->setColumnCount(colo.count());
+    compose6014->setHorizontalHeaderLabels(colo);
+
+    QPushButton *add = new QPushButton();
+    add->setText("添加实时");
+    connect(add, SIGNAL(clicked()), this, SLOT(tab_4_add()));
+    QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    sizePolicy.setHorizontalStretch(0);
+    sizePolicy.setVerticalStretch(0);
+    sizePolicy.setHeightForWidth(add->sizePolicy().hasHeightForWidth());
+    add->setSizePolicy(sizePolicy);
+
+    QPushButton *add_forz = new QPushButton();
+    add_forz->setText("添加冻结");
+    add_forz->setSizePolicy(sizePolicy);
+    connect(add_forz, SIGNAL(clicked()), this, SLOT(tab_4_add_froz()));
+
+    QPushButton *del = new QPushButton();
+    del->setText("删除");
+    del->setSizePolicy(sizePolicy);
+    connect(del, SIGNAL(clicked()), this, SLOT(tab_4_del()));
+
+    QPushButton *output = new QPushButton();
+    output->setText("导出excel");
+    output->setSizePolicy(sizePolicy);
+    connect(output, SIGNAL(clicked()), this, SLOT(tab_4_output()));
+
+    QPushButton *input = new QPushButton();
+    input->setText("导入excel");
+    input->setSizePolicy(sizePolicy);
+    connect(input, SIGNAL(clicked()), this, SLOT(tab_4_input()));
+
+    QPushButton *clear = new QPushButton();
+    clear->setText("清除所有");
+    clear->setSizePolicy(sizePolicy);
+    connect(clear, SIGNAL(clicked()), this, SLOT(tab_4_clear()));
+
+    QPushButton *generate = new QPushButton();
+    generate->setText("生成APDU");
+    generate->setSizePolicy(sizePolicy);
+    connect(generate, SIGNAL(clicked()), this, SLOT(tab_4_generate()));
+
+    QPushButton *xml = new QPushButton();
+    xml->setText("打包成xml");
+    xml->setSizePolicy(sizePolicy);
+    connect(xml, SIGNAL(clicked()), this, SLOT(tab_4_generate_xml()));
+
+    QPushButton *se = new QPushButton();
+    se->setText("下发");
+    se->setSizePolicy(sizePolicy);
+    connect(se, SIGNAL(clicked()), this, SLOT(tab_4_send()));
+
+    QHBoxLayout *hor = new QHBoxLayout();
+
+    hor->addWidget(add);
+    hor->addWidget(add_forz);
+    hor->addWidget(del);
+    hor->addWidget(clear);
+    hor->addWidget(input);
+    hor->addWidget(output);
+    hor->addWidget(generate);
+    hor->addWidget(xml);
+    hor->addWidget(se);
+
+    auto *horizontalSpacer_3 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    hor->addItem(horizontalSpacer_3);
+
+    QVBoxLayout *layout_wiget = new QVBoxLayout(tab4);
+
+    auto *textplain = new QPlainTextEdit();
+    textplain->setPlainText("采集类型:不支持补抄\n"
+                            "    0:采集当前数据;1:采集上第N次;2:按冻结时标采集;3:按时标间隔采集;\n"
+                            "\n电能表集合:\n    0:无电表,1:全部用户地址,2:一组用户类型,3:一组用户地址,4:一组配置序号,5:一组用户类型区间,6:一组用户地址区间,7:一组配置序号区间\n"
+                            "\n存储时标选择:\n"
+                            "    未定义 （0）,\n"
+                            "    任务开始时间 （1）,\n"
+                            "    相对当日0点0分 （2）,\n"
+                            "    相对上日23点59分 （3）,\n"
+                            "    相对上日0点0分 （4）,\n"
+                            "    相对当月1日0点0分 （5）,\n"
+                            "    数据冻结时标 （6）,\n"
+                            "    相对上月月末23点59分 （7）\n");
+    textplain->setReadOnly(true);
+    QSizePolicy sizePolicy2(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    sizePolicy2.setHorizontalStretch(0);
+    sizePolicy2.setVerticalStretch(0);
+    sizePolicy2.setHeightForWidth(add->sizePolicy().hasHeightForWidth());
+    textplain->setSizePolicy(sizePolicy2);
+
+    auto *lay = new QHBoxLayout();
+    lay->addWidget(compose6014);
+    lay->addWidget(textplain);
+    layout_wiget->addLayout(lay);
+    layout_wiget->addLayout(hor);
+}
+
+void CollectionMonitoringClass::tab_4_add() {
+    auto rowCount = compose6014->rowCount();
+    compose6014->insertRow(rowCount);
+    compose6014->setItem(rowCount, 0, new QTableWidgetItem(QString::number(rowCount + 1)));//编号
+    compose6014->setItem(rowCount, 1, new QTableWidgetItem("10"));//深度
+    compose6014->setItem(rowCount, 2, new QTableWidgetItem("0"));//类型
+    compose6014->setItem(rowCount, 3, new QTableWidgetItem("0"));//细则
+    compose6014->setItem(rowCount, 4, new QTableWidgetItem("00100200,00200200"));//csd
+    compose6014->setItem(rowCount, 5, new QTableWidgetItem("1"));//电能表集合
+    compose6014->setItem(rowCount, 6, new QTableWidgetItem("1"));//存储时标
+    for (int i = 0; i < 7; ++i) {
+        compose6014->item(rowCount, i)->setTextAlignment(Qt::AlignCenter);
+        compose6014->horizontalHeader()->setSectionResizeMode(i, QHeaderView::ResizeToContents);
+    }
+}
+
+void CollectionMonitoringClass::tab_4_add_froz() {
+    auto rowCount = compose6014->rowCount();
+    compose6014->insertRow(rowCount);
+    compose6014->setItem(rowCount, 0, new QTableWidgetItem(QString::number(rowCount + 1)));//编号
+    compose6014->setItem(rowCount, 1, new QTableWidgetItem("10"));//深度
+    compose6014->setItem(rowCount, 2, new QTableWidgetItem("2"));//类型
+    compose6014->setItem(rowCount, 3, new QTableWidgetItem("0"));//细则
+    compose6014->setItem(rowCount, 4, new QTableWidgetItem("50040200,20210200,00100200,00200200"));//csd
+    compose6014->setItem(rowCount, 5, new QTableWidgetItem("2:16"));//电能表集合
+    compose6014->setItem(rowCount, 6, new QTableWidgetItem("2"));//存储时标
+    for (int i = 0; i < 7; ++i) {
+        compose6014->item(rowCount, i)->setTextAlignment(Qt::AlignCenter);
+        compose6014->horizontalHeader()->setSectionResizeMode(i, QHeaderView::ResizeToContents);
+    }
+}
+
+void CollectionMonitoringClass::tab_4_del() {
+    compose6014->removeRow(compose6014->currentRow());
+}
+
+void CollectionMonitoringClass::tab_4_clear() {
+    const int row = compose6014->rowCount();
+    for (int i = 0; i < row; ++i) {
+        compose6014->removeRow(0);
+    }
+}
+
+void CollectionMonitoringClass::tab_4_generate() {
+    QStringList lists;
+    if(!tab_4_compose6014(&lists)){
+        return;
+    }
+    auto *dia = new QDialog();
+    dia->resize(500, 300);
+    QVBoxLayout *layout = new QVBoxLayout(dia);
+    auto *textPlain = new QTextEdit(dia);
+    textPlain->setWindowTitle("生成的APDU");
+    layout->addWidget(textPlain);
+            foreach(QString a, lists) {
+            textPlain->append(StringAddSpace(a));
+        }
+    dia->exec();
+}
+
+bool CollectionMonitoringClass::tab_4_compose6014(QStringList *relist) {
+    QStringList list_apdu, sp;
+    QString x, temp;
+    for (int i = 0; i < compose6014->rowCount(); ++i) {
+        x = "07010060147f000101020611";
+        temp = QString().sprintf("%02x", compose6014->item(i, 0)->text().toInt());
+        x.append(temp);
+        x.append("12" + QString().sprintf("%04x", compose6014->item(i, 1)->text().toInt()));
+        x.append("020211");
+        switch (compose6014->item(i, 2)->text().toInt()) {
+            default:
+                return false;
+            case 0: {
+                //实时
+                x.append("000001");
+                auto temp_list = (compose6014->item(i, 4)->text()).split(",", QString::SkipEmptyParts);
+                x.append(QString().sprintf("%02x", temp_list.length()));
+                        foreach(auto e, temp_list) {
+                        x.append("5b00" + e);
+                    }
+            }
+                break;
+
+            case 1:{//上N次
+                x.append("0111"+QString().sprintf("%02x", (compose6014->item(i, 3)->text()).toInt()));
+            }
+                return false;
+
+            case 2: {//冻结时标
+                x.append("020001015b01");
+                auto temp_list = (compose6014->item(i, 4)->text()).split(",", QString::SkipEmptyParts);
+                x.append(temp_list[0]);
+                x.append(QString().sprintf("%02x", temp_list.length() - 1));
+                for (int j = 1; j < temp_list.length(); ++j) {
+                    x.append(temp_list[j]);
+                }
+            }
+                break;
+            case 3: {
+                //间隔时标
+                x.append("0354");
+                auto temp_list = (compose6014->item(i, 3)->text()).split(":", QString::SkipEmptyParts);
+                x.append(QString().sprintf("%02x", temp_list[0].toInt()) +
+                         QString().sprintf("%04x", temp_list[1].toInt()));
+                auto temp_list2 = (compose6014->item(i, 4)->text()).split(",", QString::SkipEmptyParts);
+                x.append("01015b01" + temp_list2[0]);
+                x.append(QString().sprintf("%02x", temp_list2.length() - 1));
+                for (int j = 1; j < temp_list2.length(); ++j) {
+                    x.append(temp_list2[j]);
+                }
+            }
+        }
+        auto temp_list2 = (compose6014->item(i, 5)->text()).split(":");
+        switch (temp_list2[0].toInt()) {
+            default:
+                return false;
+            case 0: {
+                x.append("5c00");//无表
+            }
+                break;
+            case 1: {
+                x.append("5c01");//全部
+            }
+                break;
+            case 2: {
+                x.append("5c02");//一组用户类型
+                x.append(QString().sprintf("%02x",temp_list2.length()-1));
+                for (int j = 1; j < temp_list2.length(); ++j) {
+                    x.append(QString().sprintf("%02x",temp_list2[j].toInt()));
+                }
+            }
+                break;
+        }
+        x.append(QString().sprintf("16%02x", compose6014->item(i, 6)->text().toInt()));
+        x.append("00");
+        list_apdu.append(x);
+    }
+    *relist = list_apdu;
+    return true;
+}
+
+void CollectionMonitoringClass::tab_4_send() {
+    QStringList lists;
+    tab_4_compose6014(&lists);
+            foreach(QString a, lists) {
+            emit send_message({BuildMessage(a, re_rever_add(), "43"), ""});
+            QEventLoop eventloop;
+            QTimer::singleShot(2500, &eventloop, SLOT(quit()));
+            eventloop.exec();
+        }
+    QMessageBox::information(nullptr, "提示", "下发完成");
+}
+void CollectionMonitoringClass::tab_4_generate_xml() {
+    QStringList lists;
+    tab_4_compose6014(&lists);
+    auto *dia = new QDialog();
+    dia->resize(500, 300);
+    QVBoxLayout *layout = new QVBoxLayout(dia);
+    auto *textPlain = new QTextEdit(dia);
+    textPlain->setWindowTitle("生成的APDU");
+    layout->addWidget(textPlain);
+            foreach(QString a, lists) {
+            auto id = (QString(a.at(24)) + QString(a.at(25))).toInt(nullptr, 16);
+            textPlain->append("<ACT6012  TASKID=\"" + QString::number(id) + "\" APDU=\"" + StringAddSpace(a) + "\" />");
+        }
+    dia->exec();
+}
+void CollectionMonitoringClass::tab_4_input() {
+    {
+        QString filename = QFileDialog::getOpenFileName(nullptr, "open", ".", "*.xls");
+        YExcel::BasicExcel excelTermInfo;
+        wchar_t szBuf[1024];
+        wcscpy_s(reinterpret_cast<wchar_t *>(szBuf),
+                 sizeof(szBuf) / sizeof(wchar_t),
+                 reinterpret_cast<const wchar_t *>(filename.utf16()));
+
+        const wchar_t *wstr = szBuf;
+        if (!excelTermInfo.Load(szBuf)) {
+            QMessageBox::warning(nullptr, "warming", "Open failed");
+            return;
+        }
+        tab_3_clear();
+        YExcel::BasicExcelWorksheet *pSheet = excelTermInfo.GetWorksheet((size_t) 0);
+        YExcel::BasicExcelCell *pCell;
+
+        int nMaxRows = pSheet->GetTotalRows();
+        int nMaxCols = pSheet->GetTotalCols();
+        int nCol, nRow;
+        QString strTmp;
+        for (nRow = 1; nRow < nMaxRows; nRow++) {
+            nCol = 0;
+            compose6014->insertRow(compose6014->rowCount());
+            for (int i = 0; i < 7; ++i) {
+                pCell = pSheet->Cell(nRow, nCol++);
+                GetExcelValue(pCell, strTmp);
+                compose6014->setItem(compose6014->rowCount() - 1, nCol - 1, new QTableWidgetItem(strTmp));
+            }
+            for (int j = 0; j < 7; ++j) {
+                compose6014->item(compose6014->rowCount() - 1, j)->setTextAlignment(Qt::AlignCenter);
+                compose6014->horizontalHeader()->setSectionResizeMode(j, QHeaderView::ResizeToContents);
+            }
+        }
+    }
+}
+
+void CollectionMonitoringClass::tab_4_output() {
+    {
+        QString
+                filename = QFileDialog::getSaveFileName(this, tr("Save"), ".", tr(" (*.xls)"));
+        if (filename.isEmpty()) {
+            return;
+        }
+        YExcel::BasicExcel excelTermInfo;
+        excelTermInfo.New();
+        YExcel::BasicExcelWorksheet *pSheet = excelTermInfo.GetWorksheet((size_t) 0);
+        YExcel::BasicExcelCell *pCell;
+        int nItemNum = compose6014->rowCount();
+        int nCol, nRow, i;
+        nCol = 0;
+        nRow = 0;
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"方案编号");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"存储深度");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"采集类型");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"采集类型1or3附加");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"CSD");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"电能表集合");
+        pCell = pSheet->Cell(nRow, nCol++);
+        pCell->SetWString(L"存储时标");
+        nRow = 1;
+        for (i = 0; i < compose6014->rowCount(); i++, nRow++) {
+            nCol = 0;
+            for (int j = 0; j < 7; ++j) {
+                pCell = pSheet->Cell(nRow, nCol);
+                pCell->SetString(compose6014->item(i, nCol++)->text().toStdString().c_str());
+            }
+        }
+        excelTermInfo.SaveAs(filename.toStdString().c_str());
+        QMessageBox::information(this, "提示", "导出完成");
+    }
 }

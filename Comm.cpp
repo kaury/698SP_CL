@@ -3,10 +3,11 @@
 #include <QtCore/QStringList>
 #include <QDebug>
 #include <MeterArchives.h>
+#include "time.h"
 //#include <mainwindow.h>
-#define WIN32_LEAN_AND_MEAN
+//#define WIN32_LEAN_AND_MEAN
 
-#include <windows.h>
+//#include <windows.h>
 #include <vector>
 #include <XMLFile/tinyxml2.h>
 #include <QtWidgets/QTreeWidgetItem>
@@ -55,7 +56,13 @@
 #define DATA_RCSD                        96
 
 using namespace std;
-
+string ReTime(){
+    time_t timep;
+    time (&timep);
+    char tmp[64];
+    strftime(tmp, sizeof(tmp), "%Y-%m-%d",localtime(&timep) );
+    return tmp;
+}
 
 QString binToDec(QString strBin) {  //二进制转十进制
     QString decimal;
@@ -297,7 +304,7 @@ QString BuildMessage(const QString &apdu, const QString &SA, const QString &ctrl
     sprintf(full_len, "%.2s%.2s", len1, len2);
     QString text(full_len);
     QString Head = text + ctrl_zone + "0" + SA_sign + SA + "10";
-    qDebug() << "maybe a problem!!!!" << Head;
+//    qDebug() << "maybe a problem!!!!" << Head;
     BYTE text1[600] = {0};
     Stringlist2Hex(Head, text1);
     unsigned short TempLen = pppfcs16(PPPINITFCS16, text1, (unsigned) Head.length() / 2);
@@ -380,7 +387,7 @@ QString StringAddSpace(QString &input) {
     for (int i = 0; i < input.length(); i += 2) {
         output = output + input[i] + input[i + 1] + ' ';
     }
-    qDebug() << "output: " << output;
+//    qDebug() << "output: " << output;
     return output;
 }
 
@@ -570,4 +577,34 @@ QString saved_time(const QString &text) {
         default:
             return "???";
     }
+}
+
+bool GetExcelValue(YExcel::BasicExcelCell *pCell, QString &str)
+{
+    QString strTemp;
+    str = QString(pCell->GetString());
+    str.replace(" ", "");
+    if (str == "")
+    {
+        int num;
+        num = pCell->GetInteger();
+        str = QString::number(num, 10);
+    }
+    return true;
+}
+
+QString dealTime(const QString& x){
+    auto sp = x.split("_");
+    auto date_ = sp[0].split("-");
+    auto time_ = sp[1].split(":");
+
+    auto year = QString().sprintf("%04x", date_[0].toInt());
+    auto mouth = QString().sprintf("%02x", date_[1].toInt());
+    auto day = QString().sprintf("%02x", date_[2].toInt());
+
+    auto hour = QString().sprintf("%02x", time_[0].toInt());
+    auto min = QString().sprintf("%02x", time_[1].toInt());
+    auto sec = QString().sprintf("%02x", time_[2].toInt());
+    return year + mouth + day + hour + min + sec;
+
 }

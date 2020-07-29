@@ -1,9 +1,7 @@
 #include "serial.h"
 #include "ui_serial.h"
-#include "Qt"
 #include <thread>
 #include <QtWidgets/QMessageBox>
-#include <QList>
 #include <QDebug>
 
 using namespace std;
@@ -111,8 +109,8 @@ void Serial::creat_process() {
 
 bool Serial::open_serial(const std::basic_string<TCHAR> &s1) {
     char str[1000] = {0};
-    DWORD wCount;//读取的字节数
-    BOOL bReadStat;
+    DWORD wCount = 0;//读取的字节数
+    BOOL bReadStat = 0;
     std::basic_string<TCHAR> s2 = R"(\\.\)";
     std::basic_string<TCHAR> s3 = s2 + s1;
     LPCTSTR a3 = s3.c_str();
@@ -146,10 +144,10 @@ bool Serial::open_serial(const std::basic_string<TCHAR> &s1) {
     SetCommState(hCom, &dcb);
     PurgeComm(hCom, PURGE_TXCLEAR | PURGE_RXCLEAR);//清空缓冲区
     QString add = "6817004345AAAAAAAAAAAA10DA5F0501034001020000900f16";
-    emit send_write({add, ""});
+    emit send_write({add, "读地址"});
     PurgeComm(hCom, PURGE_TXABORT |
                     PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);
-    string temp1;
+    string temp1("");
     int times = 0;
     while (run_flag) {
         bReadStat = ReadFile(hCom, str, 700, &wCount, nullptr);
@@ -158,7 +156,7 @@ bool Serial::open_serial(const std::basic_string<TCHAR> &s1) {
             return FALSE;
         } else {
             string output;
-            char temp[10] = {0};
+            char temp[4] = {0};
             for (int i = 0; i < wCount; i++) {
                 sprintf(temp, "%02X ", (BYTE) str[i]);
                 output = output + temp;
@@ -175,14 +173,26 @@ bool Serial::open_serial(const std::basic_string<TCHAR> &s1) {
                     continue;
                 }
             }
+            QString show_text;
             switch (check(QString::fromStdString(output))) {
                 case 0: {
 //                    qDebug()<<"case 0";
                 }
                     break;
                 case 1: {
-                    cout << "Receive: " << output << endl;
-                    emit receive_message(QString::fromStdString(output));   //接收显示
+                    QStringList list = QString::fromStdString(output).split(' ', QString::SkipEmptyParts);
+                    while (true) {
+                        if (list[0] != "68") {
+                            list.removeFirst();
+//                            qDebug() << "list: " << list;
+                        } else {
+
+                            show_text = list.join(" ");
+
+                            break; }
+                    }
+                    cout << "Receive: " << show_text.toStdString() << endl;
+                    emit receive_message(show_text);   //接收显示
                     PurgeComm(hCom, PURGE_TXABORT |
                                     PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);
                     temp1 = "";
@@ -226,12 +236,18 @@ bool Serial::write_(QList<QString> add) //发送
         ClearCommError(hCom, &dwErrorFlags, &ComStat);
         DWORD dwBytesWrite = nApduLen;
         cout << "Send: " << StringAddSpace(new_add) << endl;
+
+        char str[1000] = {0};
+        DWORD wCount = 1000;//读取的字节数
+        ReadFile(hCom, str, 700, &wCount, nullptr);
+
         emit send_message(add);
         bWriteStat = WriteFile(hCom, Apdu, dwBytesWrite, &dwBytesWrite, nullptr);
         if (!bWriteStat) {
             cout << "Write data fail!!" << endl;
             return false;
         }
+
 
     } else  //以太网
     {
@@ -274,11 +290,6 @@ bool Serial::build_net(int com) {
             } else
                 continue;
         }
-//        if (i == 0)
-//        {
-////            qDebug() << "i=0";//终端下线
-//            break;
-//        }
         char a[4] = {0};
         string output = string("");
         for (int x = 0; x < i; x++) {
@@ -288,7 +299,7 @@ bool Serial::build_net(int com) {
         QStringList list = QString::fromStdString(output).split(' ', QString::SkipEmptyParts);
         if (is_head == 1) {
             while (list.begin() != list.end()) {
-                if (list[0]=="68")
+                if (list[0] == "68")
                     break;
                 else
                     list.removeAt(0);
@@ -307,6 +318,7 @@ bool Serial::build_net(int com) {
             } else if (list[0] == "68") {
                 qDebug() << "need more" << list;
                 list_backup = list;
+                list.clear();
                 is_head = 0;
             }
         } else {
